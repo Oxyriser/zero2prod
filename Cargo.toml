@@ -4,5 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# tokio = "1.17.0"
-# axum = "0.4.8"
+tokio = { version = "1.18.0", features = ["macros", "rt-multi-thread"] }
+axum = "0.5.4"
