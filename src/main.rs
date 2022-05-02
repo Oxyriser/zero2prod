@@ -7,6 +7,8 @@ use zero2prod::config::get_configuration;
 
 #[tokio::main]
 async fn main() -> hyper::Result<()> {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+
     let config = get_configuration().expect("Failed to read configuration.");
     let db_pool = PgPoolOptions::new()
         .max_connections(5)

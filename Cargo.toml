@@ -7,9 +7,11 @@ edition = "2021"
 axum = "0.5"
 chrono = "0.4.19"
 config = "0.13"
+env_logger = "0.9"
 hyper = "0.14"
 reqwest = "0.11"
 serde = { version = "1.0", features = ["derive"] }
+tower-http = { version = "0.3", features = ["trace"] }
 uuid = { version = "0.8", features = ["v4"] }
 
 [dependencies.sqlx]

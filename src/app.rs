@@ -6,6 +6,7 @@ use axum::{Extension, Router, Server};
 use hyper::server::conn::AddrIncoming;
 use sqlx::migrate::MigrateError;
 use sqlx::PgPool;
+use tower_http::trace::TraceLayer;
 
 use crate::routes::subscribe;
 
@@ -19,7 +20,8 @@ pub fn run(address: SocketAddr, db_pool: PgPool) -> Server<AddrIncoming, IntoMak
     let app = Router::new()
         .route("/health_check", get(|| async {}))
         .route("/subscriptions", post(subscribe))
-        .layer(Extension(state));
+        .layer(Extension(state))
+        .layer(TraceLayer::new_for_http());
 
     Server::bind(&address).serve(app.into_make_service())
 }
