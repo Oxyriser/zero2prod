@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use axum::extract::{Extension, Form};
 use axum::http::StatusCode;
-use chrono::Utc;
 use serde::Deserialize;
-use tracing::Instrument;
+use sqlx::types::time::OffsetDateTime;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::app::State;
@@ -15,22 +15,31 @@ pub struct FormData {
     name: String,
 }
 
-pub async fn subscribe(
-    Form(form): Form<FormData>,
-    Extension(state): Extension<Arc<State>>,
-) -> StatusCode {
-    let request_id = Uuid::new_v4();
-    let request_span = tracing::info_span!(
-        "Adding a new subscriber.",
-        %request_id,
+#[tracing::instrument(
+    name = "Adding a new subscriber",
+    skip(state, form),
+    fields(
+        request_id = %Uuid::new_v4(),
         subscriber_email = %form.email,
-        subscriber_name = %form.name,
-    );
-    let _request_span_guard = request_span.enter();
+        subscriber_name = %form.name
+    )
+)]
+pub async fn subscribe(
+    Extension(state): Extension<Arc<State>>,
+    Form(form): Form<FormData>,
+) -> StatusCode {
+    match insert_subscriber(&state.db_pool, &form).await {
+        Ok(_) => StatusCode::CREATED,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
+    }
+}
 
-    let query_span = tracing::info_span!("Saving new subscriber details in the database.");
-
-    let res = sqlx::query!(
+#[tracing::instrument(
+    name = "Saving new subscriber details in the database",
+    skip(db_pool, form)
+)]
+pub async fn insert_subscriber(db_pool: &PgPool, form: &FormData) -> Result<(), sqlx::Error> {
+    sqlx::query!(
         r#"
         INSERT INTO subscription (id, email, name, subscribed_at)
         VALUES ($1, $2, $3, $4)
@@ -38,17 +47,14 @@ pub async fn subscribe(
         Uuid::new_v4(),
         form.email,
         form.name,
-        Utc::now()
+        OffsetDateTime::now_utc(),
     )
-    .execute(&state.db_pool)
-    .instrument(query_span)
-    .await;
+    .execute(db_pool)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to execute query: {:?}", e);
+        e
+    })?;
 
-    match res {
-        Ok(_) => StatusCode::CREATED,
-        Err(e) => {
-            tracing::error!("Failed to execute query: {:?}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        },
-    }
+    Ok(())
 }

@@ -4,10 +4,11 @@ use std::time::Duration;
 use sqlx::postgres::PgPoolOptions;
 use zero2prod::app::{run, run_migrations};
 use zero2prod::config::get_configuration;
+use zero2prod::telemetry::setup_tracing;
 
 #[tokio::main]
 async fn main() -> hyper::Result<()> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    setup_tracing("zero2prod", "info", std::io::stdout);
 
     let config = get_configuration().expect("Failed to read configuration.");
     let db_pool = PgPoolOptions::new()

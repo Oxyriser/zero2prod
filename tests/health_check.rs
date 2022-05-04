@@ -1,9 +1,21 @@
 use std::net::SocketAddr;
 
+use once_cell::sync::Lazy;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use zero2prod::app::{run, run_migrations};
 use zero2prod::config::{get_configuration, DatabaseSettings};
+use zero2prod::telemetry::setup_tracing;
+
+static TRACING: Lazy<()> = Lazy::new(|| {
+    let name = "test";
+    let env_filter = "debug";
+    if std::env::var("TEST_LOG").is_ok() {
+        setup_tracing(name, env_filter, std::io::stdout);
+    } else {
+        setup_tracing(name, env_filter, std::io::sink);
+    };
+});
 
 pub struct TestApp {
     pub address: SocketAddr,
@@ -11,6 +23,7 @@ pub struct TestApp {
 }
 
 async fn spawn_app() -> TestApp {
+    Lazy::force(&TRACING);
     let mut configuration = get_configuration().expect("Failed to read configuration.");
     configuration.database.database_name = Uuid::new_v4().to_string();
 

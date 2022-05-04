@@ -26,3 +26,13 @@ Maybe try cargo-deny?
 ```sh
 cargo audit
 ```
+
+## Unused dependencies
+```sh
+cargo +nightly udeps
+```
+
+## Run a specific test with logs
+```sh
+TEST_LOG=true cargo test health_check_works | bunyan
+``` 
