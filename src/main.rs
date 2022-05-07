@@ -1,9 +1,9 @@
 use std::net::SocketAddr;
+use std::str::FromStr;
 use std::time::Duration;
 
-use secrecy::ExposeSecret;
 use sqlx::postgres::PgPoolOptions;
-use zero2prod::app::{run, run_migrations};
+use zero2prod::app::run;
 use zero2prod::config::get_configuration;
 use zero2prod::telemetry::setup_tracing;
 
@@ -15,15 +15,14 @@ async fn main() -> hyper::Result<()> {
     let db_pool = PgPoolOptions::new()
         .max_connections(5)
         .connect_timeout(Duration::from_secs(5))
-        .connect(config.database.connection_string().expose_secret())
-        .await
-        .expect("Cannot connect to the database.");
+        .connect_lazy_with(config.database.with_db());
 
-    run_migrations(&db_pool)
-        .await
-        .expect("Error running migrations");
+    let address = SocketAddr::from_str(&format!(
+        "{}:{}",
+        config.application.host, config.application.port
+    ))
+    .expect("Invalid address");
 
-    let address = SocketAddr::from(([127, 0, 0, 1], config.application_port));
     run(address, db_pool).await?;
 
     Ok(())

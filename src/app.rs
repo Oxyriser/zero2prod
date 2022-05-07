@@ -5,7 +5,6 @@ use axum::routing::{get, post, IntoMakeService};
 use axum::{Extension, Router, Server};
 use hyper::server::conn::AddrIncoming;
 use hyper::{Body, Request};
-use sqlx::migrate::MigrateError;
 use sqlx::PgPool;
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;
@@ -37,8 +36,4 @@ pub fn run(address: SocketAddr, db_pool: PgPool) -> Server<AddrIncoming, IntoMak
         );
 
     Server::bind(&address).serve(app.into_make_service())
-}
-
-pub async fn run_migrations(db_pool: &PgPool) -> Result<(), MigrateError> {
-    sqlx::migrate!("./migrations").run(db_pool).await
 }

@@ -1,10 +1,9 @@
 use std::net::SocketAddr;
 
 use once_cell::sync::Lazy;
-use secrecy::ExposeSecret;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
-use zero2prod::app::{run, run_migrations};
+use zero2prod::app::run;
 use zero2prod::config::{get_configuration, DatabaseSettings};
 use zero2prod::telemetry::setup_tracing;
 
@@ -43,18 +42,19 @@ async fn spawn_app() -> TestApp {
 }
 
 async fn configure_database(config: &DatabaseSettings) -> PgPool {
-    PgConnection::connect(&config.connection_string_without_db().expose_secret())
+    PgConnection::connect_with(&config.without_db())
         .await
         .expect("Failed to connect to Postgres")
         .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
         .await
         .expect("Failed to create database.");
 
-    let db_pool = PgPool::connect(&config.connection_string().expose_secret())
+    let db_pool = PgPool::connect_with(config.with_db())
         .await
         .expect("Failed to connect to Postgres.");
 
-    run_migrations(&db_pool)
+    sqlx::migrate!("./migrations")
+        .run(&db_pool)
         .await
         .expect("Error running migrations");
 
@@ -124,6 +124,34 @@ async fn subscribe_returns_a_422_when_data_is_missing() {
             response.status().as_u16(),
             "The API did not fail with 422 Unprocessable Entity when the payload was {}.",
             error_message
+        );
+    }
+}
+
+#[tokio::test]
+async fn subscribe_returns_a_422_when_fields_are_present_but_empty() {
+    let app = spawn_app().await;
+    let client = reqwest::Client::new();
+    let test_cases = vec![
+        ("name=&email=ursula_le_guin%40gmail.com", "empty name"),
+        ("name=Ursula&email=", "empty email"),
+        ("name=Ursula&email=definitely-not-an-email", "invalid email"),
+    ];
+
+    for (body, description) in test_cases {
+        let response = client
+            .post(&format!("http://{}/subscriptions", &app.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(body)
+            .send()
+            .await
+            .expect("Failed to execute request.");
+
+        assert_eq!(
+            422,
+            response.status().as_u16(),
+            "The API did not return a 400 Bad Request when the payload was {}.",
+            description
         );
     }
 }
