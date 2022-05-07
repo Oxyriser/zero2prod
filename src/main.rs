@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
+use secrecy::ExposeSecret;
 use sqlx::postgres::PgPoolOptions;
 use zero2prod::app::{run, run_migrations};
 use zero2prod::config::get_configuration;
@@ -14,7 +15,7 @@ async fn main() -> hyper::Result<()> {
     let db_pool = PgPoolOptions::new()
         .max_connections(5)
         .connect_timeout(Duration::from_secs(5))
-        .connect(&config.database.connection_string())
+        .connect(config.database.connection_string().expose_secret())
         .await
         .expect("Cannot connect to the database.");
 
