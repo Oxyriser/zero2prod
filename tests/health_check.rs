@@ -5,6 +5,7 @@ use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use zero2prod::app::run;
 use zero2prod::config::{get_configuration, DatabaseSettings};
+use zero2prod::email_client::EmailClient;
 use zero2prod::telemetry::setup_tracing;
 
 static TRACING: Lazy<()> = Lazy::new(|| {
@@ -24,13 +25,29 @@ pub struct TestApp {
 
 async fn spawn_app() -> TestApp {
     Lazy::force(&TRACING);
-    let mut configuration = get_configuration().expect("Failed to read configuration.");
-    configuration.database.database_name = Uuid::new_v4().to_string();
-
-    let db_pool = configure_database(&configuration.database).await;
+    let mut config = get_configuration().expect("Failed to read configuration.");
+    config.database.database_name = Uuid::new_v4().to_string();
 
     let address = SocketAddr::from(([127, 0, 0, 1], 0));
-    let server = run(address, db_pool.clone());
+
+    let db_pool = configure_database(&config.database).await;
+
+    let base_url = config
+        .email_client
+        .base_url
+        .parse()
+        .expect("Invalid url for email client.");
+    let sender_email = config
+        .email_client
+        .sender()
+        .expect("Invalid sender email address.");
+    let email_client = EmailClient::new(
+        base_url,
+        sender_email,
+        config.email_client.authorization_token,
+    );
+
+    let server = run(address, db_pool.clone(), email_client);
 
     let binded_address = server.local_addr();
     tokio::spawn(server);
@@ -56,7 +73,7 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
     sqlx::migrate!("./migrations")
         .run(&db_pool)
         .await
-        .expect("Error running migrations");
+        .expect("Error running migrations.");
 
     db_pool
 }

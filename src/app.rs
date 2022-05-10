@@ -9,14 +9,23 @@ use sqlx::PgPool;
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;
 
+use crate::email_client::EmailClient;
 use crate::routes::subscribe;
 
 pub struct State {
     pub db_pool: PgPool,
+    pub email_client: EmailClient,
 }
 
-pub fn run(address: SocketAddr, db_pool: PgPool) -> Server<AddrIncoming, IntoMakeService<Router>> {
-    let state = Arc::new(State { db_pool });
+pub fn run(
+    address: SocketAddr,
+    db_pool: PgPool,
+    email_client: EmailClient,
+) -> Server<AddrIncoming, IntoMakeService<Router>> {
+    let state = Arc::new(State {
+        db_pool,
+        email_client,
+    });
 
     let app = Router::new()
         .route("/health_check", get(|| async {}))

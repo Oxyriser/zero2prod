@@ -4,10 +4,32 @@ use serde::Deserialize;
 use sqlx::postgres::{PgConnectOptions, PgSslMode};
 use sqlx::ConnectOptions;
 
+use crate::domain::SubscriberEmail;
+
 #[derive(Deserialize)]
 pub struct Settings {
-    pub database: DatabaseSettings,
     pub application: ApplicationSettings,
+    pub database: DatabaseSettings,
+    pub email_client: EmailClientSettings,
+}
+
+#[derive(Deserialize)]
+pub struct ApplicationSettings {
+    pub host: String,
+    pub port: u16,
+}
+
+#[derive(Deserialize)]
+pub struct EmailClientSettings {
+    pub base_url: String,
+    pub sender_email: String,
+    pub authorization_token: Secret<String>,
+}
+
+impl EmailClientSettings {
+    pub fn sender(&self) -> Result<SubscriberEmail, String> {
+        SubscriberEmail::parse(self.sender_email.clone())
+    }
 }
 
 #[derive(Deserialize)]
@@ -18,12 +40,6 @@ pub struct DatabaseSettings {
     pub port: u16,
     pub database_name: String,
     pub require_ssl: bool,
-}
-
-#[derive(Deserialize)]
-pub struct ApplicationSettings {
-    pub port: u16,
-    pub host: String,
 }
 
 impl DatabaseSettings {
@@ -49,14 +65,14 @@ impl DatabaseSettings {
 }
 
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
-    let base_path = std::env::current_dir().expect("Failed to determine the current directory");
+    let base_path = std::env::current_dir().expect("Failed to determine the current directory.");
     let config_dir = base_path.join("configuration");
     let base_config = File::from(config_dir.join("base"));
 
     let environment: Environment = std::env::var("APP_ENVIRONMENT")
         .unwrap_or_else(|_| "local".into())
         .try_into()
-        .expect("Failed to parse APP_ENVIRONMENT");
+        .expect("Failed to parse APP_ENVIRONMENT.");
     let env_specific_config = File::from(config_dir.join(environment.to_string()));
 
     let env_config = config::Environment::with_prefix("app").separator("_");
