@@ -30,10 +30,12 @@ async fn main() -> hyper::Result<()> {
         .email_client
         .sender()
         .expect("Invalid sender email address.");
+    let timeout = config.email_client.timeout();
     let email_client = EmailClient::new(
         base_url,
         sender_email,
         config.email_client.authorization_token,
+        timeout,
     );
 
     run(address, db_pool, email_client).await?;
