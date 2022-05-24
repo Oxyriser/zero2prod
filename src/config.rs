@@ -32,7 +32,7 @@ impl EmailClientSettings {
         SubscriberEmail::parse(self.sender_email.clone())
     }
 
-    pub fn timeout(&self) -> std::time::Duration {
+    pub const fn timeout(&self) -> std::time::Duration {
         std::time::Duration::from_millis(self.timeout_milliseconds)
     }
 }
@@ -49,19 +49,20 @@ pub struct DatabaseSettings {
 
 impl DatabaseSettings {
     pub fn without_db(&self) -> PgConnectOptions {
-        let ssl_mode = match self.require_ssl {
-            true => PgSslMode::Require,
-            false => PgSslMode::Prefer,
+        let ssl_mode = if self.require_ssl {
+            PgSslMode::Require
+        } else {
+            PgSslMode::Prefer
         };
 
-        PgConnectOptions::new()
+        let mut pg_connection = PgConnectOptions::new()
             .host(&self.host)
             .username(&self.username)
             .password(self.password.expose_secret())
             .port(self.port)
-            .ssl_mode(ssl_mode)
-            .log_statements(tracing::log::LevelFilter::Trace)
-            .to_owned()
+            .ssl_mode(ssl_mode);
+        pg_connection.log_statements(tracing::log::LevelFilter::Trace);
+        pg_connection
     }
 
     pub fn with_db(&self) -> PgConnectOptions {
@@ -99,8 +100,8 @@ pub enum Environment {
 impl ToString for Environment {
     fn to_string(&self) -> String {
         match self {
-            Environment::Local => "local",
-            Environment::Production => "production",
+            Self::Local => "local",
+            Self::Production => "production",
         }
         .to_string()
     }

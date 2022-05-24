@@ -9,7 +9,7 @@ pub fn setup_tracing<Sink>(name: &str, env_filter: &str, sink: Sink)
 where
     Sink: for<'a> MakeWriter<'a> + Send + Sync + 'static,
 {
-    LogTracer::init().expect("Failed to set logger");
+    LogTracer::init().expect("Failed to set logger.");
 
     let env_filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(env_filter));
@@ -18,5 +18,5 @@ where
         .with(env_filter)
         .with(JsonStorageLayer)
         .with(formatting_layer);
-    set_global_default(subscriber).expect("Failed to set subscriber");
+    set_global_default(subscriber).expect("Failed to set subscriber.");
 }

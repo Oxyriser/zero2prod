@@ -3,7 +3,8 @@
 #![allow(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
-    clippy::must_use_candidate
+    clippy::must_use_candidate,
+    clippy::redundant_pub_crate
 )]
 
 pub mod app;

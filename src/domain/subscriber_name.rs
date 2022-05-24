@@ -4,7 +4,7 @@ use unicode_segmentation::UnicodeSegmentation;
 pub struct SubscriberName(String);
 
 impl SubscriberName {
-    pub fn parse(s: String) -> Result<SubscriberName, String> {
+    pub fn parse(s: String) -> Result<Self, String> {
         let is_empty_or_whitespace = s.trim().is_empty();
         let is_too_long = s.graphemes(true).count() > 256;
         let forbidden_characters = ['/', '(', ')', '"', '<', '>', '\\', '{', '}', ';'];
