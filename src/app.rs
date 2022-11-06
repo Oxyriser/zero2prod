@@ -77,6 +77,6 @@ pub fn build(config: &Settings) -> Server<AddrIncoming, IntoMakeService<Router>>
 pub fn get_db_pool(configuration: &DatabaseSettings) -> PgPool {
     PgPoolOptions::new()
         .max_connections(5)
-        .connect_timeout(std::time::Duration::from_secs(2))
+        .acquire_timeout(std::time::Duration::from_secs(2))
         .connect_lazy_with(configuration.with_db())
 }

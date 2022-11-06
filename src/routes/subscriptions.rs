@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use crate::app::State;
 use crate::domain::{NewSubscriber, SubscriberEmail, SubscriberName};
+use crate::email_client::EmailClient;
 
 #[derive(Deserialize)]
 pub struct FormData {
@@ -42,10 +43,46 @@ pub async fn subscribe(
         Ok(form) => form,
         Err(_) => return StatusCode::UNPROCESSABLE_ENTITY,
     };
-    match insert_subscriber(&state.db_pool, &new_subscriber).await {
-        Ok(_) => StatusCode::CREATED,
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
+
+    if insert_subscriber(&state.db_pool, &new_subscriber)
+        .await
+        .is_err()
+    {
+        return StatusCode::INTERNAL_SERVER_ERROR;
     }
+
+    if send_confirmation_email(&state.email_client, &new_subscriber)
+        .await
+        .is_err()
+    {
+        return StatusCode::INTERNAL_SERVER_ERROR;
+    }
+
+    StatusCode::CREATED
+}
+
+#[tracing::instrument(
+    name = "Send a confirmation email to a new subscriber",
+    skip(email_client, new_subscriber)
+)]
+pub async fn send_confirmation_email(
+    email_client: &EmailClient,
+    new_subscriber: &NewSubscriber,
+) -> Result<(), reqwest::Error> {
+    let confirmation_link = "https://my-api.com/subscriptions/confirm";
+    let html_body = format!(
+        "Welcome to our newsletter!<br />\
+        Click <a href=\"{}\">here</a> to confirm your subscription.",
+        confirmation_link
+    );
+    let text_body = format!(
+        "Welcome to our newsletter!\nVisit {} to confirm your subscription.",
+        confirmation_link
+    );
+    email_client
+        .send_email(&new_subscriber.email, "Welcome", &html_body, &text_body)
+        .await?;
+    Ok(())
 }
 
 #[tracing::instrument(
@@ -56,10 +93,11 @@ pub async fn insert_subscriber(
     db_pool: &PgPool,
     new_subscriber: &NewSubscriber,
 ) -> Result<(), sqlx::Error> {
+    //TODO: make status an enum
     sqlx::query!(
         r#"
-        INSERT INTO subscription (id, email, name, subscribed_at)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO subscription (id, email, name, subscribed_at, status)
+        VALUES ($1, $2, $3, $4, 'pending_confirmation')
         "#,
         Uuid::new_v4(),
         new_subscriber.email.as_ref(),
