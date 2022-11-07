@@ -11,26 +11,30 @@ use uuid::Uuid;
 
 use crate::config::{DatabaseSettings, Settings};
 use crate::email_client::EmailClient;
-use crate::routes::subscribe;
+use crate::routes::{confirm, subscribe};
 
 pub struct State {
     pub db_pool: PgPool,
     pub email_client: EmailClient,
+    pub base_url: String,
 }
 
 pub fn run(
     address: SocketAddr,
     db_pool: PgPool,
     email_client: EmailClient,
+    base_url: String,
 ) -> Server<AddrIncoming, IntoMakeService<Router>> {
     let state = Arc::new(State {
         db_pool,
         email_client,
+        base_url,
     });
 
     let app = Router::new()
         .route("/health_check", get(|| async {}))
         .route("/subscriptions", post(subscribe))
+        .route("/subscriptions/confirm", get(confirm))
         .layer(Extension(state))
         .layer(
             TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
@@ -48,7 +52,7 @@ pub fn run(
     Server::bind(&address).serve(app.into_make_service())
 }
 
-pub fn build(config: &Settings) -> Server<AddrIncoming, IntoMakeService<Router>> {
+pub fn build(config: Settings) -> Server<AddrIncoming, IntoMakeService<Router>> {
     let ip: IpAddr = config.application.host.parse().expect("Invalid host");
     let address = SocketAddr::from((ip, config.application.port));
 
@@ -71,7 +75,7 @@ pub fn build(config: &Settings) -> Server<AddrIncoming, IntoMakeService<Router>>
         timeout,
     );
 
-    run(address, db_pool, email_client)
+    run(address, db_pool, email_client, config.application.base_url)
 }
 
 pub fn get_db_pool(configuration: &DatabaseSettings) -> PgPool {

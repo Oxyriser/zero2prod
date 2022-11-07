@@ -7,7 +7,7 @@ async fn main() -> hyper::Result<()> {
     setup_tracing("zero2prod", "info", std::io::stdout);
 
     let config = get_configuration().expect("Failed to read configuration.");
-    build(&config).await?;
+    build(config).await?;
 
     Ok(())
 }
