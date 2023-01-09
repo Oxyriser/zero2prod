@@ -8,7 +8,7 @@ impl SubscriberEmail {
         if validate_email(&s) {
             Ok(Self(s))
         } else {
-            Err(format!("{} is not a valid subscriber email.", s))
+            Err(format!("{s} is not a valid subscriber email."))
         }
     }
 }
@@ -22,8 +22,7 @@ impl AsRef<str> for SubscriberEmail {
 #[cfg(test)]
 mod tests {
     use claim::assert_err;
-    use fake::faker::internet::en::SafeEmail;
-    use fake::Fake;
+    use fake::{faker::internet::en::SafeEmail, Fake};
 
     use super::SubscriberEmail;
     #[test]

@@ -6,9 +6,11 @@ use reqwest::Body;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use wiremock::MockServer;
-use zero2prod::app::{build, get_db_pool};
-use zero2prod::config::{get_configuration, DatabaseSettings};
-use zero2prod::telemetry::setup_tracing;
+use zero2prod::{
+    app::{build, get_db_pool},
+    config::{get_configuration, DatabaseSettings},
+    telemetry::setup_tracing,
+};
 
 static TRACING: Lazy<()> = Lazy::new(|| {
     let name = "test";

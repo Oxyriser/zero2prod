@@ -1,9 +1,8 @@
 edition = "2021"
 error_on_line_overflow = true
 error_on_unformatted = true
-imports_granularity = "Module"
+imports_granularity = "Crate"
 group_imports = "StdExternalCrate"
 match_block_trailing_comma = true
 use_field_init_shorthand = true
 version = "Two"
-wrap_comments = true

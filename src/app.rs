@@ -1,17 +1,22 @@
-use std::net::{IpAddr, SocketAddr};
-use std::sync::Arc;
+use std::{
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+};
 
-use axum::routing::{get, post, IntoMakeService};
-use axum::{Extension, Router, Server};
-use hyper::server::conn::AddrIncoming;
-use hyper::{Body, Request};
+use axum::{
+    routing::{get, post, IntoMakeService},
+    Extension, Router, Server,
+};
+use hyper::{server::conn::AddrIncoming, Body, Request};
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;
 
-use crate::config::{DatabaseSettings, Settings};
-use crate::email_client::EmailClient;
-use crate::routes::{confirm, subscribe};
+use crate::{
+    config::{DatabaseSettings, Settings},
+    email_client::EmailClient,
+    routes::{confirm, subscribe},
+};
 
 pub struct State {
     pub db_pool: PgPool,

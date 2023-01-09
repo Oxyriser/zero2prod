@@ -1,6 +1,7 @@
-use linkify::{LinkFinder, LinkKind};
-use wiremock::matchers::{method, path};
-use wiremock::{Mock, ResponseTemplate};
+use wiremock::{
+    matchers::{method, path},
+    Mock, ResponseTemplate,
+};
 
 use crate::helpers::{get_confirmation_links, spawn_app};
 

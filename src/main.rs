@@ -1,6 +1,4 @@
-use zero2prod::app::build;
-use zero2prod::config::get_configuration;
-use zero2prod::telemetry::setup_tracing;
+use zero2prod::{app::build, config::get_configuration, telemetry::setup_tracing};
 
 #[tokio::main]
 async fn main() -> hyper::Result<()> {

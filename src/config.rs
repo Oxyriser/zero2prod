@@ -1,8 +1,10 @@
 use config::{Config, File};
 use secrecy::{ExposeSecret, Secret};
 use serde::Deserialize;
-use sqlx::postgres::{PgConnectOptions, PgSslMode};
-use sqlx::ConnectOptions;
+use sqlx::{
+    postgres::{PgConnectOptions, PgSslMode},
+    ConnectOptions,
+};
 
 use crate::domain::SubscriberEmail;
 

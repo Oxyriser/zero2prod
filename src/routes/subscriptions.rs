@@ -1,17 +1,22 @@
 use std::sync::Arc;
 
-use axum::extract::{Extension, Form};
-use axum::http::StatusCode;
-use rand::distributions::{Alphanumeric, DistString};
-use rand::thread_rng;
+use axum::{
+    extract::{Extension, Form},
+    http::StatusCode,
+};
+use rand::{
+    distributions::{Alphanumeric, DistString},
+    thread_rng,
+};
 use serde::Deserialize;
-use sqlx::types::time::OffsetDateTime;
-use sqlx::PgPool;
+use sqlx::{types::time::OffsetDateTime, Postgres, Transaction};
 use uuid::Uuid;
 
-use crate::app::State;
-use crate::domain::{NewSubscriber, SubscriberEmail, SubscriberName};
-use crate::email_client::EmailClient;
+use crate::{
+    app::State,
+    domain::{NewSubscriber, SubscriberEmail, SubscriberName},
+    email_client::EmailClient,
+};
 
 #[derive(Deserialize)]
 pub struct FormData {
@@ -46,16 +51,25 @@ pub async fn subscribe(
         Err(_) => return StatusCode::UNPROCESSABLE_ENTITY,
     };
 
-    let subscriber_id = match insert_subscriber(&state.db_pool, &new_subscriber).await {
+    let mut db_transaction = match state.db_pool.begin().await {
+        Ok(transaction) => transaction,
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR,
+    };
+
+    let subscriber_id = match insert_subscriber(&mut db_transaction, &new_subscriber).await {
         Ok(subscriber_id) => subscriber_id,
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR,
     };
 
     let subscription_token = generate_subscription_token();
-    if store_token(&state.db_pool, subscriber_id, &subscription_token)
+    if store_token(&mut db_transaction, subscriber_id, &subscription_token)
         .await
         .is_err()
     {
+        return StatusCode::INTERNAL_SERVER_ERROR;
+    }
+
+    if db_transaction.commit().await.is_err() {
         return StatusCode::INTERNAL_SERVER_ERROR;
     }
 
@@ -63,7 +77,7 @@ pub async fn subscribe(
         &state.email_client,
         &new_subscriber,
         &state.base_url,
-        "mytoken",
+        &subscription_token,
     )
     .await
     .is_err()
@@ -79,7 +93,7 @@ pub async fn subscribe(
     skip(db_pool, new_subscriber)
 )]
 pub async fn insert_subscriber(
-    db_pool: &PgPool,
+    db_pool: &mut Transaction<'_, Postgres>,
     new_subscriber: &NewSubscriber,
 ) -> Result<Uuid, sqlx::Error> {
     let subscriber_id = Uuid::new_v4();
@@ -114,7 +128,7 @@ fn generate_subscription_token() -> String {
     skip(subscription_token, pool)
 )]
 pub async fn store_token(
-    pool: &PgPool,
+    pool: &mut Transaction<'_, Postgres>,
     subscriber_id: Uuid,
     subscription_token: &str,
 ) -> Result<(), sqlx::Error> {
