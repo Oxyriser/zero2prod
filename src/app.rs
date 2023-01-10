@@ -7,10 +7,13 @@ use axum::{
     routing::{get, post, IntoMakeService},
     Extension, Router, Server,
 };
-use hyper::{server::conn::AddrIncoming, Body, Request};
+use hyper::server::conn::AddrIncoming;
 use sqlx::postgres::{PgPool, PgPoolOptions};
-use tower_http::trace::TraceLayer;
-use uuid::Uuid;
+use tower_http::{
+    request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
+    trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
+};
+use tracing::Level;
 
 use crate::{
     config::{DatabaseSettings, Settings},
@@ -41,18 +44,22 @@ pub fn run(
         .route("/subscriptions", post(subscribe))
         .route("/subscriptions/confirm", get(confirm))
         .layer(Extension(state))
+        .layer(PropagateRequestIdLayer::x_request_id())
         .layer(
-            TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
-                let request_id = Uuid::new_v4();
-                tracing::debug_span!(
-                    "request",
-                    %request_id,
-                    method = %request.method(),
-                    uri = %request.uri(),
-                    version = ?request.version(),
+            TraceLayer::new_for_http()
+                .on_request(DefaultOnRequest::new().level(Level::INFO))
+                .on_response(
+                    DefaultOnResponse::new()
+                        .level(Level::INFO)
+                        .include_headers(true),
                 )
-            }),
-        );
+                .make_span_with(
+                    DefaultMakeSpan::new()
+                        .level(Level::INFO)
+                        .include_headers(true),
+                ),
+        )
+        .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid));
 
     Server::bind(&address).serve(app.into_make_service())
 }
