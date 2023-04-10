@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
+use anyhow::Context;
 use axum::{
     extract::{Extension, Form},
     http::StatusCode,
+    response::{IntoResponse, Response},
 };
 use rand::{
     distributions::{Alphanumeric, DistString},
@@ -34,16 +36,21 @@ impl TryFrom<FormData> for NewSubscriber {
     }
 }
 
-#[derive(Debug)]
-pub struct StoreTokenError(sqlx::Error);
+#[derive(Debug, thiserror::Error)]
+pub enum SubscribeError {
+    #[error("{0}")]
+    ValidationError(String),
+    #[error(transparent)]
+    UnexpectedError(#[from] anyhow::Error),
+}
 
-impl std::fmt::Display for StoreTokenError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "A database error was encountered while \
-            trying to store a subscription token."
-        )
+impl IntoResponse for SubscribeError {
+    fn into_response(self) -> Response {
+        match self {
+            Self::ValidationError(_) => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+        .into_response()
     }
 }
 
@@ -58,47 +65,36 @@ impl std::fmt::Display for StoreTokenError {
 pub async fn subscribe(
     Extension(state): Extension<Arc<State>>,
     Form(form): Form<FormData>,
-) -> StatusCode {
-    let new_subscriber = match form.try_into() {
-        Ok(form) => form,
-        Err(_) => return StatusCode::UNPROCESSABLE_ENTITY,
-    };
+) -> Result<StatusCode, SubscribeError> {
+    let new_subscriber = form.try_into().map_err(SubscribeError::ValidationError)?;
 
-    let mut db_transaction = match state.db_pool.begin().await {
-        Ok(transaction) => transaction,
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR,
-    };
-
-    let subscriber_id = match insert_subscriber(&mut db_transaction, &new_subscriber).await {
-        Ok(subscriber_id) => subscriber_id,
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR,
-    };
-
-    let subscription_token = generate_subscription_token();
-    if store_token(&mut db_transaction, subscriber_id, &subscription_token)
+    let mut db_transaction = state
+        .db_pool
+        .begin()
         .await
-        .is_err()
-    {
-        return StatusCode::INTERNAL_SERVER_ERROR;
-    }
+        .context("Failed to acquire a Postgres connection from the pool")?;
+    let subscriber_id = insert_subscriber(&mut db_transaction, &new_subscriber)
+        .await
+        .context("Failed to insert new subscriber in the database")?;
+    let subscription_token = generate_subscription_token();
+    store_token(&mut db_transaction, subscriber_id, &subscription_token)
+        .await
+        .context("Failed to store the confirmation token for a new subscriber")?;
+    db_transaction
+        .commit()
+        .await
+        .context("Failed to commit SQL transaction to store a new subscriber")?;
 
-    if db_transaction.commit().await.is_err() {
-        return StatusCode::INTERNAL_SERVER_ERROR;
-    }
-
-    if send_confirmation_email(
+    send_confirmation_email(
         &state.email_client,
         &new_subscriber,
         &state.base_url,
         &subscription_token,
     )
     .await
-    .is_err()
-    {
-        return StatusCode::INTERNAL_SERVER_ERROR;
-    }
+    .context("Failed to send a confirmation email")?;
 
-    StatusCode::CREATED
+    Ok(StatusCode::CREATED)
 }
 
 #[tracing::instrument(
@@ -173,18 +169,14 @@ pub async fn send_confirmation_email(
     base_url: &str,
     subscription_token: &str,
 ) -> Result<(), reqwest::Error> {
-    let confirmation_link = format!(
-        "{}/subscriptions/confirm?subscription_token={}",
-        base_url, subscription_token
-    );
+    let confirmation_link =
+        format!("{base_url}/subscriptions/confirm?subscription_token={subscription_token}");
     let html_body = format!(
         "Welcome to our newsletter!<br />\
-        Click <a href=\"{}\">here</a> to confirm your subscription.",
-        confirmation_link
+        Click <a href=\"{confirmation_link}\">here</a> to confirm your subscription."
     );
     let text_body = format!(
-        "Welcome to our newsletter!\nVisit {} to confirm your subscription.",
-        confirmation_link
+        "Welcome to our newsletter!\nVisit {confirmation_link} to confirm your subscription."
     );
     email_client
         .send_email(&new_subscriber.email, "Welcome", &html_body, &text_body)

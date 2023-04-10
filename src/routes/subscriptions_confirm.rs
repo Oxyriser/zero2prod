@@ -17,10 +17,11 @@ pub async fn confirm(
     Extension(state): Extension<Arc<State>>,
     query: Query<Parameters>,
 ) -> StatusCode {
-    let id = match get_subscriber_id_from_token(&state.db_pool, &query.subscription_token).await {
-        Ok(id) => id,
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR,
+    let Ok(id) = get_subscriber_id_from_token(&state.db_pool, &query.subscription_token).await
+    else {
+        return StatusCode::INTERNAL_SERVER_ERROR;
     };
+
     match id {
         // Non-existing token!
         None => StatusCode::UNAUTHORIZED,
