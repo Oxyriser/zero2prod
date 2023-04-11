@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
-use axum::{extract::Query, http::StatusCode, Extension};
+use axum::{
+    extract::{Query, State},
+    http::StatusCode,
+};
 use serde::Deserialize;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::app::State;
+use crate::app::State as AppState;
 
 #[derive(Deserialize)]
 pub struct Parameters {
@@ -13,10 +16,7 @@ pub struct Parameters {
 }
 
 #[tracing::instrument(name = "Confirm a pending subscriber", skip(query, state))]
-pub async fn confirm(
-    Extension(state): Extension<Arc<State>>,
-    query: Query<Parameters>,
-) -> StatusCode {
+pub async fn confirm(State(state): State<Arc<AppState>>, query: Query<Parameters>) -> StatusCode {
     let Ok(id) = get_subscriber_id_from_token(&state.db_pool, &query.subscription_token).await
     else {
         return StatusCode::INTERNAL_SERVER_ERROR;

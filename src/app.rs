@@ -5,7 +5,7 @@ use std::{
 
 use axum::{
     routing::{get, post, IntoMakeService},
-    Extension, Router, Server,
+    Router, Server,
 };
 use hyper::server::conn::AddrIncoming;
 use sqlx::postgres::{PgPool, PgPoolOptions};
@@ -43,7 +43,6 @@ pub fn run(
         .route("/health_check", get(|| async {}))
         .route("/subscriptions", post(subscribe))
         .route("/subscriptions/confirm", get(confirm))
-        .layer(Extension(state))
         .layer(PropagateRequestIdLayer::x_request_id())
         .layer(
             TraceLayer::new_for_http()
@@ -59,7 +58,8 @@ pub fn run(
                         .include_headers(true),
                 ),
         )
-        .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid));
+        .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
+        .with_state(state);
 
     Server::bind(&address).serve(app.into_make_service())
 }

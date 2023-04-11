@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use axum::{
-    extract::{Extension, Form},
+    extract::{Form, State},
     http::StatusCode,
     response::{IntoResponse, Response},
 };
@@ -15,7 +15,7 @@ use sqlx::{types::time::OffsetDateTime, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::{
-    app::State,
+    app::State as AppState,
     domain::{NewSubscriber, SubscriberEmail, SubscriberName},
     email_client::EmailClient,
 };
@@ -63,7 +63,7 @@ impl IntoResponse for SubscribeError {
     )
 )]
 pub async fn subscribe(
-    Extension(state): Extension<Arc<State>>,
+    State(state): State<Arc<AppState>>,
     Form(form): Form<FormData>,
 ) -> Result<StatusCode, SubscribeError> {
     let new_subscriber = form.try_into().map_err(SubscribeError::ValidationError)?;
