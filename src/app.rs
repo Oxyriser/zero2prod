@@ -11,9 +11,8 @@ use hyper::server::conn::AddrIncoming;
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use tower_http::{
     request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
-    trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
+    trace::{DefaultMakeSpan, DefaultOnFailure, TraceLayer},
 };
-use tracing::Level;
 
 use crate::{
     config::{DatabaseSettings, Settings},
@@ -46,17 +45,12 @@ pub fn run(
         .layer(PropagateRequestIdLayer::x_request_id())
         .layer(
             TraceLayer::new_for_http()
-                .on_request(DefaultOnRequest::new().level(Level::INFO))
-                .on_response(
-                    DefaultOnResponse::new()
-                        .level(Level::INFO)
-                        .include_headers(true),
-                )
                 .make_span_with(
                     DefaultMakeSpan::new()
-                        .level(Level::INFO)
-                        .include_headers(true),
-                ),
+                        .include_headers(true)
+                        .level(tracing::Level::INFO),
+                )
+                .on_failure(DefaultOnFailure::new().level(tracing::Level::INFO)),
         )
         .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
         .with_state(state);

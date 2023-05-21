@@ -46,6 +46,7 @@ pub enum SubscribeError {
 
 impl IntoResponse for SubscribeError {
     fn into_response(self) -> Response {
+        tracing::error!(error = ?self);
         match self {
             Self::ValidationError(_) => StatusCode::UNPROCESSABLE_ENTITY,
             Self::UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -118,11 +119,7 @@ pub async fn insert_subscriber(
         OffsetDateTime::now_utc(),
     )
     .execute(db_pool)
-    .await
-    .map_err(|e| {
-        tracing::error!("Failed to execute query: {:?}", e);
-        e
-    })?;
+    .await?;
 
     Ok(subscriber_id)
 }
@@ -150,11 +147,7 @@ pub async fn store_token(
         subscriber_id,
     )
     .execute(pool)
-    .await
-    .map_err(|e| {
-        tracing::error!("Failed to execute query: {:?}", e);
-        e
-    })?;
+    .await?;
 
     Ok(())
 }
