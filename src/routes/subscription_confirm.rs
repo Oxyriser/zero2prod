@@ -14,7 +14,7 @@ use uuid::Uuid;
 use crate::app::State as AppState;
 
 #[derive(Deserialize)]
-pub struct Parameters {
+pub struct SubscriptionConfirm {
     subscription_token: String,
 }
 
@@ -41,7 +41,7 @@ impl IntoResponse for ConfirmError {
 #[tracing::instrument(name = "Confirm a pending subscriber", skip(query, state))]
 pub async fn confirm(
     State(state): State<Arc<AppState>>,
-    query: Query<Parameters>,
+    query: Query<SubscriptionConfirm>,
 ) -> Result<StatusCode, ConfirmError> {
     let id = get_subscriber_id_from_token(&state.db_pool, &query.subscription_token)
         .await

@@ -3,17 +3,19 @@ use wiremock::{
     Mock, ResponseTemplate,
 };
 
-use crate::helpers::{get_confirmation_links, spawn_app};
+use crate::helpers::spawn_app;
 
 #[tokio::test]
 async fn subscribe_returns_a_200_for_valid_form_data() {
     let app = spawn_app().await;
-    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+
     Mock::given(path("/email"))
         .and(method("POST"))
         .respond_with(ResponseTemplate::new(200))
         .mount(&app.email_server)
         .await;
+
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
     let response = app.post_subscriptions(body).await;
 
     assert_eq!(201, response.status().as_u16());
@@ -22,13 +24,14 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
 #[tokio::test]
 async fn subscribe_persists_the_new_subscriber() {
     let app = spawn_app().await;
-    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+
     Mock::given(path("/email"))
         .and(method("POST"))
         .respond_with(ResponseTemplate::new(200))
         .mount(&app.email_server)
         .await;
 
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
     app.post_subscriptions(body).await;
 
     let saved = sqlx::query!(r#"SELECT email, name, status FROM subscription"#)
@@ -85,7 +88,6 @@ async fn subscribe_returns_a_422_when_fields_are_present_but_invalid() {
 #[tokio::test]
 async fn subscribe_sends_a_confirmation_email_for_valid_data() {
     let app = spawn_app().await;
-    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
 
     Mock::given(path("/email"))
         .and(method("POST"))
@@ -94,36 +96,38 @@ async fn subscribe_sends_a_confirmation_email_for_valid_data() {
         .mount(&app.email_server)
         .await;
 
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
     app.post_subscriptions(body).await;
 }
 
 #[tokio::test]
 async fn subscribe_sends_a_confirmation_email_with_a_link() {
     let app = spawn_app().await;
-    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+
     Mock::given(path("/email"))
         .and(method("POST"))
         .respond_with(ResponseTemplate::new(200))
         .mount(&app.email_server)
         .await;
 
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
     app.post_subscriptions(body).await;
 
     let email_request = &app.email_server.received_requests().await.unwrap()[0];
-    let confirmation_links = get_confirmation_links(&app.address, &email_request);
+    let confirmation_links = app.get_confirmation_links(&email_request);
     assert_eq!(confirmation_links.html, confirmation_links.plain_text);
 }
 
 #[tokio::test]
 async fn subscribe_fails_if_there_is_a_fatal_database_error() {
     let app = spawn_app().await;
-    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
 
     sqlx::query!("ALTER TABLE subscription_token DROP COLUMN subscription_token;",)
         .execute(&app.db_pool)
         .await
         .unwrap();
 
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
     let response = app.post_subscriptions(body).await;
 
     assert_eq!(response.status().as_u16(), 500);

@@ -3,13 +3,13 @@ use wiremock::{
     Mock, ResponseTemplate,
 };
 
-use crate::helpers::{get_confirmation_links, spawn_app};
+use crate::helpers::spawn_app;
 
 #[tokio::test]
 async fn confirmations_without_token_are_rejected_with_a_400() {
     let app = spawn_app().await;
 
-    let response = reqwest::get(&format!("http://{}/subscriptions/confirm", app.address))
+    let response = reqwest::get(&format!("http://{}/subscription/confirm", app.address))
         .await
         .unwrap();
 
@@ -19,6 +19,7 @@ async fn confirmations_without_token_are_rejected_with_a_400() {
 #[tokio::test]
 async fn the_link_returned_by_subscribe_returns_a_200_if_called() {
     let app = spawn_app().await;
+
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
     Mock::given(path("/email"))
         .and(method("POST"))
@@ -29,14 +30,15 @@ async fn the_link_returned_by_subscribe_returns_a_200_if_called() {
     app.post_subscriptions(body).await;
 
     let email_request = &app.email_server.received_requests().await.unwrap()[0];
-    let confirmation_links = get_confirmation_links(&app.address, &email_request);
-    let response = reqwest::get(confirmation_links.html).await.unwrap();
+    let confirmation_links = app.get_confirmation_links(&email_request);
+    let response = reqwest::get(dbg!(confirmation_links.html)).await.unwrap();
     assert_eq!(response.status().as_u16(), 200);
 }
 
 #[tokio::test]
 async fn clicking_on_the_confirmation_link_confirms_a_subscriber() {
     let app = spawn_app().await;
+
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
     Mock::given(path("/email"))
         .and(method("POST"))
@@ -46,7 +48,7 @@ async fn clicking_on_the_confirmation_link_confirms_a_subscriber() {
 
     app.post_subscriptions(body).await;
     let email_request = &app.email_server.received_requests().await.unwrap()[0];
-    let confirmation_links = get_confirmation_links(&app.address, &email_request);
+    let confirmation_links = app.get_confirmation_links(&email_request);
     reqwest::get(confirmation_links.html)
         .await
         .unwrap()

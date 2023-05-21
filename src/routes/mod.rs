@@ -1,5 +1,7 @@
-mod subscriptions;
-mod subscriptions_confirm;
+mod newsletter;
+mod subscription;
+mod subscription_confirm;
 
-pub use subscriptions::subscribe;
-pub use subscriptions_confirm::confirm;
+pub use newsletter::publish_newsletter;
+pub use subscription::subscribe;
+pub use subscription_confirm::confirm;

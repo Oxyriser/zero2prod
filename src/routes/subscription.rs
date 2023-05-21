@@ -21,15 +21,15 @@ use crate::{
 };
 
 #[derive(Deserialize)]
-pub struct FormData {
+pub struct Subscription {
     email: String,
     name: String,
 }
 
-impl TryFrom<FormData> for NewSubscriber {
+impl TryFrom<Subscription> for NewSubscriber {
     type Error = String;
 
-    fn try_from(value: FormData) -> Result<Self, Self::Error> {
+    fn try_from(value: Subscription) -> Result<Self, Self::Error> {
         let name = SubscriberName::parse(value.name)?;
         let email = SubscriberEmail::parse(value.email)?;
         Ok(Self { email, name })
@@ -57,17 +57,19 @@ impl IntoResponse for SubscribeError {
 
 #[tracing::instrument(
     name = "Adding a new subscriber",
-    skip(state, form),
+    skip(state, subscription),
     fields(
-        subscriber_email = %form.email,
-        subscriber_name = %form.name
+        subscriber_email = %subscription.email,
+        subscriber_name = %subscription.name
     )
 )]
 pub async fn subscribe(
     State(state): State<Arc<AppState>>,
-    Form(form): Form<FormData>,
+    Form(subscription): Form<Subscription>,
 ) -> Result<StatusCode, SubscribeError> {
-    let new_subscriber = form.try_into().map_err(SubscribeError::ValidationError)?;
+    let new_subscriber = subscription
+        .try_into()
+        .map_err(SubscribeError::ValidationError)?;
 
     let mut db_transaction = state
         .db_pool
@@ -163,7 +165,7 @@ pub async fn send_confirmation_email(
     subscription_token: &str,
 ) -> Result<(), reqwest::Error> {
     let confirmation_link =
-        format!("{base_url}/subscriptions/confirm?subscription_token={subscription_token}");
+        format!("{base_url}/subscription/confirm?subscription_token={subscription_token}");
     let html_body = format!(
         "Welcome to our newsletter!<br />\
         Click <a href=\"{confirmation_link}\">here</a> to confirm your subscription."

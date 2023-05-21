@@ -17,7 +17,7 @@ use tower_http::{
 use crate::{
     config::{DatabaseSettings, Settings},
     email_client::EmailClient,
-    routes::{confirm, subscribe},
+    routes::{confirm, publish_newsletter, subscribe},
 };
 
 pub struct State {
@@ -40,8 +40,9 @@ pub fn run(
 
     let app = Router::new()
         .route("/health_check", get(|| async {}))
-        .route("/subscriptions", post(subscribe))
-        .route("/subscriptions/confirm", get(confirm))
+        .route("/subscription", post(subscribe))
+        .route("/subscription/confirm", get(confirm))
+        .route("/newsletter", post(publish_newsletter))
         .layer(PropagateRequestIdLayer::x_request_id())
         .layer(
             TraceLayer::new_for_http()
