@@ -1,35 +1,10 @@
-## Linker
-lld for linux, zld for mac. Maybe try out mold?
+# Zero2Axum
 
-## Watcher
+## Run the app
 ```sh
-cargo watch -x check -x test -x run
-```
-
-## Code coverage
-```sh
-cargo tarpaulin --ignore-tests
-```
-
-## Linting
-```sh
-cargo clippy -- -D warnings
-```
-
-## Formatting
-```sh
-cargo fmt
-```
-
-## Security Vulnerabilities
-Maybe try cargo-deny?
-```sh
-cargo audit
-```
-
-## Unused dependencies
-```sh
-cargo +nightly udeps
+docker compose up -d
+cargo sqlx migrate run
+RUST_LOG=info cargo run
 ```
 
 ## Run a specific test with logs

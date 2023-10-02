@@ -1,0 +1,13 @@
+- Experiment with linkers:
+	- lld for linux
+	- zld for mac
+	- try out mold
+- Justfile or Makefile
+	- clippy
+	- fmt
+	- watcher: `cargo watch -x check -x test -x run`
+	- code coverage: `cargo tarpaulin --ignore-tests`
+	- security vulnerabilities: `cargo audit`, try out cargo-deny
+	- unused dependencies: `cargo +nightly udeps`
+	- `cargo update`
+	- upgrade: `cargo outdated` and try out cargo-upgrade
